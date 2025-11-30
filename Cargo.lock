@@ -157,7 +157,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethernet_frame"
+name = "ethernet_frame_receive"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pcap",
+]
+
+[[package]]
+name = "ethernet_frame_send"
 version = "0.1.0"
 dependencies = [
  "anyhow",

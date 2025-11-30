@@ -1,37 +1,121 @@
-# 以太网帧练习工具
+# Ethernet Frame 工具集使用指南
 
-这是原 WinPcap 版发送端与接收端的 Rust 实现。程序依赖 `libpcap`（通过 `pcap` crate）来构造以太网帧、在指定接口上发送数据，并捕获目标 MAC 匹配的帧。
+本项目包含两个二进制工具：
 
-## 环境要求
+- `ethernet_frame_send`：从文件读取数据构造以太网帧，可选自动封装 IPv4 并发送。
+- `ethernet_frame_receive`：基于 libpcap 捕获原始以太网帧，按 MAC/IP 白名单过滤后输出数据与 IPv4 重组结果。
 
-- Rust 工具链（建议 1.75 及以上）
-- 支持 libpcap 的系统（macOS 自带，Linux 通常需要安装 `libpcap-dev`）
-- 发送/抓取原始帧往往需要管理员权限，若遇到权限错误可使用 `sudo`
+下文说明如何编译、运行，以及本次新增的 IPv4 发送功能。
 
-## 构建
+## 环境与依赖
 
-```bash
-cargo build
-```
+- Rust 1.75+（推荐使用 `rustup`）
+- 已安装 libpcap（macOS 自带，Linux 可通过包管理器安装 `libpcap-dev`）
+- 运行发送/接收时通常需要管理员权限（如 `sudo`），因为需要打开原始网卡。
 
-## 使用示例
+## 编译与发布
 
-列出所有 libpcap 可用接口：
-
-```bash
-cargo run -- list
-```
-
-在接口 `en0` 上发送 `data.txt` 的内容（一次发送 10 个帧、间隔 500ms）：
+### 开发态调试
 
 ```bash
-cargo run -- send --interface en0 --data data.txt --count 10 --interval-ms 500
+cargo run --bin ethernet_frame_send -- --help
+cargo run --bin ethernet_frame_receive -- --help
 ```
 
-在 `en0` 上抓包，并把载荷保存到 `recv.txt`，最多捕获 5 个匹配帧：
+### Release 版本
 
 ```bash
-cargo run -- receive --interface en0 --output recv.txt --limit 5
+cargo build --workspace --release
 ```
 
-还可以通过其他参数修改 MAC 地址、为短数据补零、调节发送速率，或扩展允许的目的 MAC 白名单。更多选项可运行 `cargo run -- --help`，或查看 `send`/`receive` 子命令的帮助信息。
+生成的可执行文件位于 `target/release/`：
+
+- `target/release/ethernet_frame_send`
+- `target/release/ethernet_frame_receive`
+
+运行示例（macOS）：
+
+```bash
+sudo ./target/release/ethernet_frame_send list
+sudo ./target/release/ethernet_frame_receive list
+```
+
+## Send 工具使用
+
+1. **列出接口**
+   ```bash
+   sudo ./target/release/ethernet_frame_send list
+   ```
+2. **发送基础以太网帧**
+   ```bash
+   sudo ./target/release/ethernet_frame_send \
+     send --interface en0 --data data.txt --count 10 --interval-ms 500
+   ```
+
+常用参数：
+
+- `--dest-mac/--src-mac`：源/目的 MAC 地址。
+- `--ethertype`：自定义 EtherType（默认 `0x0080`）。
+- `--pad`：若载荷 < 46 字节自动补零。
+- `--count`：发送帧数，未指定则无限循环。
+- `--interval-ms`：帧间隔，默认 1000ms。
+
+## 新增：IPv4 封装与分片发送
+
+启用 `--ipv4` 后，发送端会参考 WinPcap C++ 版本逻辑，自动构造 IPv4 头并完成必要分片：
+
+```bash
+sudo ./target/release/ethernet_frame_send send \
+  --interface en0 \
+  --data data.txt \
+  --ipv4 \
+  --src-ip 10.13.80.43 \
+  --dst-ip 255.255.255.255 \
+  --fragment-size 1400 \
+  --protocol 6 \
+  --ip-id 42
+```
+
+功能说明：
+
+- `--ipv4`：开启 IPv4 封装后，EtherType 自动设置为 `0x0800`。
+- `--src-ip/--dst-ip`：IP 头部地址字段；默认 `10.13.80.43 -> 255.255.255.255`。
+- `--ttl`：生存时间；默认 64。
+- `--tos`：服务类型；默认 `0xFE`，与原 C++ 保持一致。
+- `--protocol`：上层协议号；默认 6 (TCP)。
+- `--fragment-size`：单个片段的净载荷大小，需为 8 的倍数，默认 1400 字节（60 字节头 + 1400 数据 = 1460 以太网载荷）。
+- `--ip-id`：IPv4 报文标识符，默认为 0，可自定义以便配合接收端调试重组逻辑。
+- `--dont-fragment`：设置 DF 标志，禁止路由器再次分片。
+
+发送端会先把输入文件切分为满足 `fragment_size` 的块，再为每个块生成 IPv4 头、计算校验和、填充标志/偏移，最后整体交由以太网层发送。循环发送时会按顺序轮询这些帧，从而重复播发完整的 IPv4 报文。
+
+## Receive 工具使用
+
+1. **列出接口**
+   ```bash
+   sudo ./target/release/ethernet_frame_receive list
+   ```
+2. **抓包并保存**
+   ```bash
+   sudo ./target/release/ethernet_frame_receive receive \
+     --interface en0 \
+     --output recv.txt \
+     --ip-output ip_data.bin \
+     --accept 44:87:fc:d6:bd:8c,ff:ff:ff:ff:ff:ff \
+     --accept-ip 255.255.255.255 \
+     --limit 20
+   ```
+
+要点：
+
+- 默认白名单包含广播 MAC 与示例目的 MAC，可用 `--accept` 增补。
+- `--accept-ip` 控制 IPv4 目的地址白名单。
+- 抓到 IPv4 分片时，接收端会重组后写入 `--ip-output` 指定文件，同时在终端打印 TTL、校验和、偏移等信息。
+
+## 故障排查
+
+- 权限不足：确保以 `sudo` 或具有 CAP_NET_RAW 的身份运行。
+- 找不到接口：使用 `send list`/`receive list` 确认设备名（macOS 常为 `en0`）。
+- IPv4 文件过大：当前实现以单个报文为单位，最大支持 `65535 - 60 = 65475` 字节净载荷，超出需自行拆分多次发送。
+
+如需扩展更多协议或自动化测试，可在现有模块化结构基础上继续添加新的子模块或集成测试脚本。祝调试顺利！
