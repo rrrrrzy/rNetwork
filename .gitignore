@@ -1,1 +1,13 @@
+ip_data.bin
+recv.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Rust tooling
+/.vscode
+/.idea
 /target
+**/*.rs.bk
