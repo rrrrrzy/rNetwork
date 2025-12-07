@@ -1,3 +1,5 @@
+[developping]
+项目仍在开发中，请不要使用
 # Ethernet Frame 工具集使用指南
 
 本项目包含两个二进制工具：
