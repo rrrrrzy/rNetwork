@@ -4,6 +4,7 @@ use std::io::{BufWriter, Write};
 use anyhow::{Context, Result};
 use pcap::{Active, Capture, Device, Error as PcapError, Packet};
 
+use crate::arp::ArpProcessor;
 use crate::cli::ReceiveArgs;
 use crate::crc::Crc32;
 use crate::ipv4::Ipv4Processor;
@@ -38,6 +39,7 @@ pub fn receive_packets(args: ReceiveArgs) -> Result<()> {
     );
     let mut ipv4 = Ipv4Processor::new(args.accept_ip, &args.ip_output)
         .with_context(|| format!("初始化 IPv4 输出文件 {:?} 失败", args.ip_output))?;
+    let mut arp = ArpProcessor::new(ipv4.allowed_slice().to_vec());
 
     let mut accepted = if args.accept.is_empty() {
         vec![MacAddr::broadcast(), DEFAULT_DEST_MAC]
@@ -69,6 +71,7 @@ pub fn receive_packets(args: ReceiveArgs) -> Result<()> {
                     &crc,
                     &mut writer,
                     &mut ipv4,
+                    &mut arp,
                 )? {
                     displayed += 1;
                     if let Some(limit) = args.limit.filter(|&limit| displayed >= limit) {
@@ -101,6 +104,7 @@ fn handle_packet(
     crc: &Crc32,
     writer: &mut BufWriter<File>,
     ipv4: &mut Ipv4Processor,
+    arp: &mut ArpProcessor,
 ) -> Result<bool> {
     if packet.data.len() < HEADER_LEN + CRC_LEN {
         println!("检测到长度仅 {} 字节的畸形帧，已忽略。", packet.data.len());
@@ -147,6 +151,8 @@ fn handle_packet(
 
     if ethertype == 0x0800 {
         ipv4.process(payload)?;
+    } else if ethertype == 0x0806 {
+        arp.process(payload)?;
     }
 
     println!("----------------------");

@@ -42,6 +42,10 @@ impl Ipv4Processor {
             .join(", ")
     }
 
+    pub fn allowed_slice(&self) -> &[Ipv4Addr] {
+        &self.accepted
+    }
+
     pub fn process(&mut self, payload: &[u8]) -> Result<()> {
         if payload.len() < 20 {
             println!("IPv4 数据长度不足，丢弃。");

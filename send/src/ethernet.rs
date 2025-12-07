@@ -3,7 +3,8 @@ use std::{fs, thread, time::Duration};
 use anyhow::{Context, Result, bail};
 use pcap::{Active, Capture, Device};
 
-use crate::cli::SendArgs;
+use crate::arp::{ArpOperation, build_arp_payload};
+use crate::cli::{ArpMode, SendArgs};
 use crate::crc::Crc32;
 use crate::ipv4::{Ipv4Config, build_ipv4_payloads};
 
@@ -28,31 +29,49 @@ pub fn list_adapters() -> Result<()> {
 }
 
 pub fn send_packets(args: SendArgs) -> Result<()> {
-    let mut file_payload =
-        fs::read(&args.data).with_context(|| format!("无法从 {:?} 读取载荷", args.data))?;
-
-    let payloads = if args.ipv4 {
-        let cfg = Ipv4Config {
-            src_ip: args.src_ip,
-            dst_ip: args.dst_ip,
-            ttl: args.ttl,
-            tos: args.tos,
-            protocol: args.protocol,
-            fragment_size: args.fragment_size,
-            identification: args.ip_id,
-            dont_fragment: args.dont_fragment,
-        };
-        build_ipv4_payloads(&file_payload, &cfg)?
+    let payloads = if let Some(arp_mode) = args.arp_mode {
+        let mut payload = build_arp_payload(
+            map_arp_mode(arp_mode),
+            args.src_mac,
+            args.src_ip,
+            args.arp_target_mac,
+            args.arp_target_ip,
+        );
+        enforce_payload_rules(&mut payload, true)?;
+        vec![payload]
     } else {
-        enforce_payload_rules(&mut file_payload, args.pad)?;
-        vec![file_payload]
+        let mut file_payload =
+            fs::read(&args.data).with_context(|| format!("无法从 {:?} 读取载荷", args.data))?;
+
+        if args.ipv4 {
+            let cfg = Ipv4Config {
+                src_ip: args.src_ip,
+                dst_ip: args.dst_ip,
+                ttl: args.ttl,
+                tos: args.tos,
+                protocol: args.protocol,
+                fragment_size: args.fragment_size,
+                identification: args.ip_id,
+                dont_fragment: args.dont_fragment,
+            };
+            build_ipv4_payloads(&file_payload, &cfg)?
+        } else {
+            enforce_payload_rules(&mut file_payload, args.pad)?;
+            vec![file_payload]
+        }
     };
 
     if payloads.is_empty() {
         bail!("未生成任何以太网载荷，请检查输入文件。");
     }
 
-    let ethertype = if args.ipv4 { 0x0800 } else { args.ethertype };
+    let ethertype = if args.arp_mode.is_some() {
+        0x0806
+    } else if args.ipv4 {
+        0x0800
+    } else {
+        args.ethertype
+    };
     let crc = Crc32::new();
     let frames: Vec<Vec<u8>> = payloads
         .into_iter()
@@ -135,4 +154,11 @@ fn enforce_payload_rules(payload: &mut Vec<u8>, pad: bool) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn map_arp_mode(mode: ArpMode) -> ArpOperation {
+    match mode {
+        ArpMode::Request => ArpOperation::Request,
+        ArpMode::Reply => ArpOperation::Reply,
+    }
 }

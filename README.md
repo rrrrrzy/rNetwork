@@ -89,6 +89,35 @@ sudo ./target/release/ethernet_frame_send send \
 
 发送端会先把输入文件切分为满足 `fragment_size` 的块，再为每个块生成 IPv4 头、计算校验和、填充标志/偏移，最后整体交由以太网层发送。循环发送时会按顺序轮询这些帧，从而重复播发完整的 IPv4 报文。
 
+## 新增：ARP 帧构造与发送
+
+`ethernet_frame_send` 现在可以直接构造 RFC 826 ARP 报文，无需准备数据文件：
+
+```bash
+sudo ./target/release/ethernet_frame_send send \
+   --interface en0 \
+   --arp-mode request \
+   --src-mac 4a:c4:de:f0:3c:d8 \
+   --src-ip 192.168.31.223 \
+   --arp-target-ip 192.168.31.223 \
+   --arp-target-mac 4a:c4:de:f0:3c:d8 \
+   --count 10 --interval-ms 1000
+```
+
+关键开关：
+
+- `--arp-mode <request|reply>`：选择发送 ARP 请求或响应；启用后 `--ipv4` 与自定义数据路径会自动关闭。
+- `--arp-target-ip`：ARP 包中待解析/响应的 IPv4 地址，默认 `10.0.0.1`。
+- `--arp-target-mac`：ARP 目标 MAC（请求时通常全 0，回复时为对端真实 MAC）。
+
+开启 `--arp-mode` 后，程序会：
+
+- 依据当前源 MAC/IP 与目标 MAC/IP 构造 28 字节 ARP 负载。
+- 自动将 EtherType 设为 `0x0806`，并对 payload 进行 46 字节最小帧填充；无需再额外指定 `--ethertype` 或 `--pad`。
+- 保持其他发包参数（`--count`、`--interval-ms`、`--dest-mac` 等）与普通模式一致，便于脚本化测试。
+
+可配合 `ethernet_frame_receive` 观察 ARP 报文接收输出，或用 Wireshark 验证帧格式。
+
 ## Receive 工具使用
 
 1. **列出接口**
@@ -101,8 +130,8 @@ sudo ./target/release/ethernet_frame_send send \
      --interface en0 \
      --output recv.txt \
      --ip-output ip_data.bin \
-     --accept 44:87:fc:d6:bd:8c,ff:ff:ff:ff:ff:ff \
-     --accept-ip 255.255.255.255 \
+     --accept 4a:c4:de:f0:3c:d8,ff:ff:ff:ff:ff:ff \
+     --accept-ip 192.168.31.223 \
      --limit 20
    ```
 
@@ -111,6 +140,16 @@ sudo ./target/release/ethernet_frame_send send \
 - 默认白名单包含广播 MAC 与示例目的 MAC，可用 `--accept` 增补。
 - `--accept-ip` 控制 IPv4 目的地址白名单。
 - 抓到 IPv4 分片时，接收端会重组后写入 `--ip-output` 指定文件，同时在终端打印 TTL、校验和、偏移等信息。
+
+### 新增：ARP 解析与缓存
+
+`ethernet_frame_receive` 会在检测到 EtherType `0x0806` 时解析 ARP 报文，并维护一个简单的 ARP 缓存表：
+
+- 解析字段包含操作码、硬件/协议类型、发送端与目标 MAC/IP。
+- 目标 IPv4 地址同样受 `--accept-ip` 白名单控制，可复用已有配置来表示“本机”地址。
+- 每次学习到新的 IP↔MAC 对应关系都会在终端输出当前缓存，方便对照 C++ 版本的 `ARP_Cache_Table` 调试。
+
+请确保以广播 MAC 或自定义白名单允许对应帧，否则以太网层会在进入 ARP 解析前被丢弃。
 
 ## 故障排查
 

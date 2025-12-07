@@ -4,6 +4,14 @@ use std::{borrow::Cow, fmt, str::FromStr};
 pub struct MacAddr([u8; 6]);
 
 impl MacAddr {
+    pub const fn from_raw(bytes: [u8; 6]) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn broadcast() -> Self {
+        Self([0xFF; 6])
+    }
+
     pub fn as_bytes(&self) -> &[u8; 6] {
         &self.0
     }

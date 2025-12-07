@@ -1,3 +1,4 @@
+mod arp;
 mod cli;
 mod crc;
 mod ethernet;
