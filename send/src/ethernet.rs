@@ -5,7 +5,7 @@ use pcap::{Active, Capture, Device};
 
 use crate::arp::{ArpOperation, build_arp_payload};
 use crate::cli::{ArpMode, SendArgs};
-use crate::crc::Crc32;
+use crate::checksum::Crc32;
 use crate::ipv4::{Ipv4Config, build_ipv4_payloads};
 
 const MIN_PAYLOAD: usize = 46;

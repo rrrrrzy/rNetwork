@@ -13,6 +13,13 @@
 - 已安装 libpcap（macOS 自带，Linux 可通过包管理器安装 `libpcap-dev`）
 - 运行发送/接收时通常需要管理员权限（如 `sudo`），因为需要打开原始网卡。
 
+## 特性与设计
+
+### Baremetal / No_std 兼容性
+- **自定义 `Ipv4Addr` 实现**: 项目不依赖 `std::net::Ipv4Addr`，而是在 `ipv4_addr.rs` 中自行实现了完整的 IPv4 地址类型。
+- **零标准库网络依赖**: 所有网络协议处理（以太网、IPv4、ARP、CRC32）均为自主实现，便于移植到嵌入式/裸金属环境。
+- **完整 trait 支持**: 自定义类型实现了 `Display`, `FromStr`, `Debug`, `Eq`, `Ord`, `Hash` 等标准 trait，API 与标准库保持一致。
+
 ## 编译与发布
 
 ### 开发态调试

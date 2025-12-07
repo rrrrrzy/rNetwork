@@ -1,8 +1,9 @@
 mod arp;
+mod checksum;
 mod cli;
-mod crc;
 mod ethernet;
 mod ipv4;
+mod ipv4_addr;
 mod mac;
 
 use anyhow::Result;

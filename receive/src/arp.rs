@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::net::Ipv4Addr;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
+use crate::ipv4_addr::Ipv4Addr;
 use crate::mac::MacAddr;
 
 const ARP_FIXED_LEN: usize = 28;
@@ -36,7 +36,8 @@ impl ArpPacket {
         if hardware_len as usize != 6 || protocol_len as usize != 4 {
             bail!(
                 "暂不支持硬件长度 {} / 协议长度 {} 的 ARP 报文",
-                hardware_len, protocol_len
+                hardware_len,
+                protocol_len
             );
         }
 
@@ -95,18 +96,23 @@ impl ArpProcessor {
             return Ok(());
         }
 
-        if !self.allowed_targets.is_empty()
-            && !self.allowed_targets.contains(&packet.target_ip)
-        {
+        if !self.allowed_targets.is_empty() && !self.allowed_targets.contains(&packet.target_ip) {
             println!("ARP 目标 IP {} 不在白名单，忽略。", packet.target_ip);
             return Ok(());
         }
 
         println!("--------------ARP Protocol-----------------");
-        println!("操作类型: {} (0x{:04x})", packet.opcode_label(), packet.opcode);
+        println!(
+            "操作类型: {} (0x{:04x})",
+            packet.opcode_label(),
+            packet.opcode
+        );
         println!("硬件类型: 0x{:04x}", packet.hardware_type);
         println!("协议类型: 0x{:04x}", packet.protocol_type);
-        println!("发送端 MAC/IP: {} / {}", packet.sender_mac, packet.sender_ip);
+        println!(
+            "发送端 MAC/IP: {} / {}",
+            packet.sender_mac, packet.sender_ip
+        );
         println!("目标 MAC/IP: {} / {}", packet.target_mac, packet.target_ip);
 
         if self

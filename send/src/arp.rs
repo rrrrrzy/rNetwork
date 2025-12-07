@@ -1,5 +1,4 @@
-use std::net::Ipv4Addr;
-
+use crate::ipv4_addr::Ipv4Addr;
 use crate::mac::MacAddr;
 
 /// Supported ARP operations.

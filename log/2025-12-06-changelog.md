@@ -1,5 +1,14 @@
 # 2025-12-06 Changelog
 
+## Baremetal 重构 - 移除 std::net 依赖
+- **新增 `ipv4_addr.rs`**: 为 send/receive 两侧分别实现自定义 `Ipv4Addr` 类型，替代 `std::net::Ipv4Addr`。
+  - 实现 `new(a, b, c, d)`, `from_octets([u8; 4])`, `octets() -> [u8; 4]` 等核心方法
+  - 提供 `broadcast()`, `unspecified()`, `localhost()` 常量构造器
+  - 完整实现 `Display`/`FromStr`/`Debug`/`Eq`/`Ord`/`Hash` trait，保证与 std 版 API 兼容
+- **全面更新 import**: 在 `cli.rs`, `arp.rs`, `ipv4.rs`, `main.rs` 中将 `use std::net::Ipv4Addr` 替换为 `use crate::ipv4_addr::Ipv4Addr`
+- **动机**: 支持 baremetal/no_std 环境开发，减少对标准库网络模块的依赖，为嵌入式平台移植做准备
+- **验证**: 编译通过(`cargo build --workspace --release`)，仅保留未使用函数警告
+
 ## 新增 ARP 发送能力
 - `send/src/arp.rs` 新增 RFC 826 组帧逻辑，提供 `ArpOperation` 枚举与 `build_arp_payload` 帮助函数。
 - CLI 增加 `--arp-mode`（Request/Reply）、`--arp-target-ip`、`--arp-target-mac` 选项，可直接从命令行构造 ARP 帧。

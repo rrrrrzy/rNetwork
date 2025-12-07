@@ -1,7 +1,8 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+use crate::ipv4_addr::Ipv4Addr;
 use crate::mac::MacAddr;
 
 #[derive(Parser)]

@@ -1,6 +1,7 @@
-use std::net::Ipv4Addr;
-
 use anyhow::{Result, bail, ensure};
+
+use crate::checksum::simple_checksum as ipv4_checksum;
+use crate::ipv4_addr::Ipv4Addr;
 
 const IPV4_HEADER_LEN: usize = 60;
 const IPV4_IHL_WORDS: u8 = (IPV4_HEADER_LEN / 4) as u8;
@@ -83,19 +84,4 @@ fn assemble_fragment(fragment: &[u8], more: bool, offset: usize, cfg: &Ipv4Confi
     packet[10..12].copy_from_slice(&checksum.to_be_bytes());
 
     packet
-}
-
-fn ipv4_checksum(header: &[u8]) -> u16 {
-    let mut sum: u32 = 0;
-    let mut chunks = header.chunks_exact(2);
-    for chunk in &mut chunks {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
-    }
-    if let Some(&byte) = chunks.remainder().first() {
-        sum += (byte as u32) << 8;
-    }
-    while (sum >> 16) != 0 {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    !(sum as u16)
 }

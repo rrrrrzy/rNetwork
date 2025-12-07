@@ -2,10 +2,12 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
-    net::Ipv4Addr,
     path::PathBuf,
     time::{Duration, Instant},
 };
+
+use crate::checksum::simple_checksum as ipv4_checksum;
+use crate::ipv4_addr::Ipv4Addr;
 
 use anyhow::Result;
 
@@ -20,7 +22,7 @@ impl Ipv4Processor {
     pub fn new(accepted: Vec<Ipv4Addr>, output: &PathBuf) -> Result<Self> {
         let mut allow = accepted;
         if allow.is_empty() {
-            allow.push(Ipv4Addr::BROADCAST);
+            allow.push(Ipv4Addr::broadcast());
             allow.push(Ipv4Addr::new(192, 168, 0, 1));
         }
         allow.sort();
@@ -193,21 +195,6 @@ struct FragmentBuffer {
     last_update: Instant,
     more_expected: bool,
     next_offset: usize,
-}
-
-fn ipv4_checksum(header: &[u8]) -> u16 {
-    let mut sum: u32 = 0;
-    let mut chunks = header.chunks_exact(2);
-    for chunk in &mut chunks {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
-    }
-    if let Some(&byte) = chunks.remainder().first() {
-        sum += (byte as u32) << 8;
-    }
-    while (sum >> 16) != 0 {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    !(sum as u16)
 }
 
 fn print_ipv4_payload(label: &str, data: &[u8]) {

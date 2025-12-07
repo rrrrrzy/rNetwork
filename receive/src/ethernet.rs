@@ -6,7 +6,7 @@ use pcap::{Active, Capture, Device, Error as PcapError, Packet};
 
 use crate::arp::ArpProcessor;
 use crate::cli::ReceiveArgs;
-use crate::crc::Crc32;
+use crate::checksum::Crc32;
 use crate::ipv4::Ipv4Processor;
 use crate::mac::MacAddr;
 
