@@ -7,3 +7,4 @@ edition = "2024"
 anyhow = { workspace = true }
 clap = { workspace = true }
 pcap = { workspace = true }
+static_assertions ={ workspace = true }

@@ -1,7 +1,10 @@
 mod arp;
 mod checksum;
 mod cli;
+mod config;
+mod error;
 mod ethernet;
+mod icmp;
 mod ipv4;
 mod ipv4_addr;
 mod mac;
