@@ -1,5 +1,6 @@
 ip_data.bin
 recv.txt
+comments_template.txt
 
 # macOS
 .DS_Store
