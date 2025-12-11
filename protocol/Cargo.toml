@@ -1,5 +1,5 @@
 [package]
-name = "ethernet_frame_send"
+name = "protocol"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,5 +7,4 @@ edition = "2024"
 anyhow = { workspace = true }
 clap = { workspace = true }
 pcap = { workspace = true }
-static_assertions = { workspace = true }
-protocol = { path = "../protocol" }
+static_assertions ={ workspace = true }

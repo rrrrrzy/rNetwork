@@ -13,8 +13,8 @@
 
 use anyhow::{Result, bail, ensure};
 
-use crate::checksum::simple_checksum as ipv4_checksum;
-use crate::ipv4_addr::Ipv4Addr;
+use protocol::checksum::simple_checksum as ipv4_checksum;
+use protocol::ipv4::Ipv4Addr;
 
 const IPV4_HEADER_LEN: usize = 60;
 const IPV4_IHL_WORDS: u8 = (IPV4_HEADER_LEN / 4) as u8;

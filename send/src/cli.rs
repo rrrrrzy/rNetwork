@@ -15,8 +15,8 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::ipv4_addr::Ipv4Addr;
-use crate::mac::MacAddr;
+use protocol::ipv4::Ipv4Addr;
+use protocol::mac::MacAddr;
 
 const DEFAULT_ETHERTYPE: u16 = 0x0080;
 const DEFAULT_DEST_MAC_STR: &str = "44:87:fc:d6:bd:8c";

@@ -15,6 +15,12 @@ pub struct Crc32 {
     table: [u32; 256],
 }
 
+impl Default for Crc32 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Crc32 {
     pub fn new() -> Self {
         let mut table = [0u32; 256];

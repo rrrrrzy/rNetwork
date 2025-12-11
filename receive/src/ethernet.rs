@@ -16,12 +16,13 @@ use std::io::{BufWriter, Write};
 
 use anyhow::{Context, Result};
 use pcap::{Active, Capture, Device, Error as PcapError, Packet};
+use protocol::checksum::Crc32;
+use protocol::error::ArpParseError;
+use protocol::mac::MacAddr;
 
 use crate::arp::ArpProcessor;
 use crate::cli::ReceiveArgs;
-use crate::checksum::Crc32;
 use crate::ipv4::Ipv4Processor;
-use crate::mac::MacAddr;
 
 const MIN_PAYLOAD: usize = 46;
 const MAX_PAYLOAD: usize = 1500;
@@ -85,7 +86,10 @@ pub fn receive_packets(args: ReceiveArgs) -> Result<()> {
                     &mut writer,
                     &mut ipv4,
                     &mut arp,
-                )? {
+                )
+                .unwrap()
+                // an unwrap for simply solve the error, but may cost panic
+                {
                     displayed += 1;
                     if let Some(limit) = args.limit.filter(|&limit| displayed >= limit) {
                         println!("已达到 {limit} 个匹配帧的抓包上限。");
@@ -118,7 +122,7 @@ fn handle_packet(
     writer: &mut BufWriter<File>,
     ipv4: &mut Ipv4Processor,
     arp: &mut ArpProcessor,
-) -> Result<bool> {
+) -> Result<bool, ArpParseError> {
     if packet.data.len() < HEADER_LEN + CRC_LEN {
         println!("检测到长度仅 {} 字节的畸形帧，已忽略。", packet.data.len());
         return Ok(false);
@@ -163,17 +167,26 @@ fn handle_packet(
     println!("补零提示字节: {pad_hint}");
 
     if ethertype == 0x0800 {
-        ipv4.process(payload)?;
+        ipv4.process(payload)
+            .map_err(|_| ArpParseError::InvalidArpFixedLength)?;
     } else if ethertype == 0x0806 {
         arp.process(payload)?;
     }
 
     println!("----------------------");
 
-    writer.write_all(format!("{ordinal}:     ").as_bytes())?;
-    writer.write_all(payload)?;
-    writer.write_all(b"\n")?;
-    writer.flush()?;
+    writer
+        .write_all(format!("{ordinal}:     ").as_bytes())
+        .map_err(|_| ArpParseError::InvalidArpFixedLength)?;
+    writer
+        .write_all(payload)
+        .map_err(|_| ArpParseError::InvalidArpFixedLength)?;
+    writer
+        .write_all(b"\n")
+        .map_err(|_| ArpParseError::InvalidArpFixedLength)?;
+    writer
+        .flush()
+        .map_err(|_| ArpParseError::InvalidArpFixedLength)?;
 
     Ok(true)
 }

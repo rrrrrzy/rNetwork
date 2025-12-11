@@ -19,8 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::checksum::simple_checksum as ipv4_checksum;
-use crate::ipv4_addr::Ipv4Addr;
+use protocol::checksum::simple_checksum as ipv4_checksum;
+use protocol::ipv4::Ipv4Addr;
 
 use anyhow::Result;
 

@@ -13,77 +13,12 @@
 
 use std::collections::HashMap;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 
-use crate::ipv4_addr::Ipv4Addr;
-use crate::mac::MacAddr;
-
-const ARP_FIXED_LEN: usize = 28;
-const HW_TYPE_ETHERNET: u16 = 0x0001;
-const PROTO_TYPE_IPV4: u16 = 0x0800;
-
-#[derive(Debug, Clone, Copy)]
-pub struct ArpPacket {
-    pub hardware_type: u16,
-    pub protocol_type: u16,
-    pub hardware_len: u8,
-    pub protocol_len: u8,
-    pub opcode: u16,
-    pub sender_mac: MacAddr,
-    pub sender_ip: Ipv4Addr,
-    pub target_mac: MacAddr,
-    pub target_ip: Ipv4Addr,
-}
-
-impl ArpPacket {
-    pub fn parse(payload: &[u8]) -> Result<Self> {
-        if payload.len() < ARP_FIXED_LEN {
-            bail!("ARP 负载长度 {} 不足 {ARP_FIXED_LEN}", payload.len());
-        }
-        let hardware_type = u16::from_be_bytes([payload[0], payload[1]]);
-        let protocol_type = u16::from_be_bytes([payload[2], payload[3]]);
-        let hardware_len = payload[4];
-        let protocol_len = payload[5];
-        let opcode = u16::from_be_bytes([payload[6], payload[7]]);
-
-        if hardware_len as usize != 6 || protocol_len as usize != 4 {
-            bail!(
-                "暂不支持硬件长度 {} / 协议长度 {} 的 ARP 报文",
-                hardware_len,
-                protocol_len
-            );
-        }
-
-        let sender_mac = MacAddr::from_slice(&payload[8..14]);
-        let sender_ip = Ipv4Addr::new(payload[14], payload[15], payload[16], payload[17]);
-        let target_mac = MacAddr::from_slice(&payload[18..24]);
-        let target_ip = Ipv4Addr::new(payload[24], payload[25], payload[26], payload[27]);
-
-        Ok(Self {
-            hardware_type,
-            protocol_type,
-            hardware_len,
-            protocol_len,
-            opcode,
-            sender_mac,
-            sender_ip,
-            target_mac,
-            target_ip,
-        })
-    }
-
-    pub fn is_ethernet_ipv4(&self) -> bool {
-        self.hardware_type == HW_TYPE_ETHERNET && self.protocol_type == PROTO_TYPE_IPV4
-    }
-
-    pub fn opcode_label(&self) -> &'static str {
-        match self.opcode {
-            1 => "Request",
-            2 => "Reply",
-            _ => "未知",
-        }
-    }
-}
+use protocol::arp::ArpPacket;
+use protocol::error::ArpParseError;
+use protocol::ipv4::Ipv4Addr;
+use protocol::mac::MacAddr;
 
 pub struct ArpProcessor {
     allowed_targets: Vec<Ipv4Addr>,
@@ -98,7 +33,7 @@ impl ArpProcessor {
         }
     }
 
-    pub fn process(&mut self, payload: &[u8]) -> Result<()> {
+    pub fn process(&mut self, payload: &[u8]) -> Result<(), ArpParseError> {
         let packet = ArpPacket::parse(payload)?;
 
         if !packet.is_ethernet_ipv4() {

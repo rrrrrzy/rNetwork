@@ -11,10 +11,6 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-pub enum ICMPError {
-    ICMP_LENGTH_ERR,
-    ICMP_HEADER_LENGTH_NOT_MATCH,
-    ICMP_PAYLOAD_LENGTH_NOT_MATCH,
-    ICMP_HEADER_NOT_VALID,
-    ICMP_TIME_NOT_VALID,
-}
+pub mod arp;
+pub mod icmp;
+pub mod ipv4;

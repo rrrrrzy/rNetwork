@@ -11,24 +11,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use crate::ipv4_addr::Ipv4Addr;
-use crate::mac::MacAddr;
-
-/// Supported ARP operations.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ArpOperation {
-    Request,
-    Reply,
-}
-
-impl ArpOperation {
-    fn opcode(self) -> u16 {
-        match self {
-            Self::Request => 1,
-            Self::Reply => 2,
-        }
-    }
-}
+use protocol::arp::ArpOperation;
+use protocol::ipv4::Ipv4Addr;
+use protocol::mac::MacAddr;
 
 /// Build an ARP payload following RFC 826.
 pub fn build_arp_payload(

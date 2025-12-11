@@ -11,6 +11,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use crate::error::MacParseError;
 use std::{borrow::Cow, fmt, str::FromStr};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -23,6 +24,16 @@ impl MacAddr {
 
     pub const fn broadcast() -> Self {
         Self([0xFF; 6])
+    }
+
+    pub fn from_slice(slice: &[u8]) -> Self {
+        let mut bytes = [0u8; 6];
+        bytes.copy_from_slice(slice);
+        Self(bytes)
+    }
+
+    pub const fn zero() -> Self {
+        Self([0x00; 6])
     }
 
     pub fn as_bytes(&self) -> &[u8; 6] {
@@ -59,9 +70,6 @@ impl FromStr for MacAddr {
         Ok(Self(bytes))
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct MacParseError(Cow<'static, str>);
 
 impl fmt::Display for MacParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

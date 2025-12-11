@@ -15,11 +15,12 @@ use std::{fs, thread, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use pcap::{Active, Capture, Device};
+use protocol::checksum::Crc32;
 
-use crate::arp::{ArpOperation, build_arp_payload};
+use crate::arp::build_arp_payload;
 use crate::cli::{ArpMode, SendArgs};
-use crate::checksum::Crc32;
 use crate::ipv4::{Ipv4Config, build_ipv4_payloads};
+use protocol::arp::ArpOperation;
 
 const MIN_PAYLOAD: usize = 46;
 const MAX_PAYLOAD: usize = 1500;
