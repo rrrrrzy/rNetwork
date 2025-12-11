@@ -11,22 +11,11 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-mod arp;
-mod cli;
-mod config;
-mod ethernet;
-mod ipv4;
-
-use anyhow::Result;
-use clap::Parser;
-
-use crate::cli::{Cli, Command};
-use crate::ethernet::{list_adapters, send_packets};
-
-fn main() -> Result<()> {
-    let cli = Cli::parse();
-    match cli.command {
-        Command::List => list_adapters(),
-        Command::Send(args) => send_packets(args),
-    }
-}
+pub mod arp;
+pub mod checksum;
+pub mod error;
+pub mod icmp;
+pub mod ipv4;
+pub mod mac;
+pub mod udp;
+pub mod ethernet;

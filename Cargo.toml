@@ -1,5 +1,5 @@
 [workspace]
-members = ["send", "receive"]
+members = ["send", "receive", "net_stack", "protocol"]
 resolver = "3"
 
 [workspace.package]
@@ -7,5 +7,6 @@ edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1.0"
-clap = { version = "4.5", features = ["derive"] }
-pcap = "1.1"
+clap = { version = "4.5.53", features = ["derive"] }
+pcap = "2.4.0"
+static_assertions = "1.1"

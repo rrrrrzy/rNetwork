@@ -1,7 +1,20 @@
+// Copyright (C) 2025 rrrrrzy
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// --------------------------------------------------
+// 致敬所有在深夜调试代码的灵魂。
+// 即便 Bug 如山，我亦往矣。
+// --------------------------------------------------
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
 use anyhow::{Result, bail, ensure};
 
-use crate::checksum::simple_checksum as ipv4_checksum;
-use crate::ipv4_addr::Ipv4Addr;
+use protocol::checksum::simple_checksum as ipv4_checksum;
+use protocol::ipv4::Ipv4Addr;
 
 const IPV4_HEADER_LEN: usize = 60;
 const IPV4_IHL_WORDS: u8 = (IPV4_HEADER_LEN / 4) as u8;

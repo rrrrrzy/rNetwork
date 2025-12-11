@@ -11,22 +11,8 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-mod arp;
-mod cli;
-mod config;
-mod ethernet;
-mod ipv4;
+use static_assertions::const_assert;
 
-use anyhow::Result;
-use clap::Parser;
-
-use crate::cli::{Cli, Command};
-use crate::ethernet::{list_adapters, send_packets};
-
-fn main() -> Result<()> {
-    let cli = Cli::parse();
-    match cli.command {
-        Command::List => list_adapters(),
-        Command::Send(args) => send_packets(args),
-    }
-}
+/// ICMP的数据部分大小，单位字节，必须 4 字节对齐，最小长度为 4 字节（时间戳）
+pub static ICMP_PAYLOAD_SIZE: usize = 1024;
+const_assert!(ICMP_PAYLOAD_SIZE % 32 == 0 && ICMP_PAYLOAD_SIZE >= 32);

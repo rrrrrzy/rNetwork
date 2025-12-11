@@ -1,21 +1,19 @@
-use crate::ipv4_addr::Ipv4Addr;
-use crate::mac::MacAddr;
+// Copyright (C) 2025 rrrrrzy
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// --------------------------------------------------
+// 致敬所有在深夜调试代码的灵魂。
+// 即便 Bug 如山，我亦往矣。
+// --------------------------------------------------
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-/// Supported ARP operations.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ArpOperation {
-    Request,
-    Reply,
-}
-
-impl ArpOperation {
-    fn opcode(self) -> u16 {
-        match self {
-            Self::Request => 1,
-            Self::Reply => 2,
-        }
-    }
-}
+use protocol::arp::ArpOperation;
+use protocol::ipv4::Ipv4Addr;
+use protocol::mac::MacAddr;
 
 /// Build an ARP payload following RFC 826.
 pub fn build_arp_payload(

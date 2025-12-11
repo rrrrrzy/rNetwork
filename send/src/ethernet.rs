@@ -1,12 +1,26 @@
+// Copyright (C) 2025 rrrrrzy
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// --------------------------------------------------
+// 致敬所有在深夜调试代码的灵魂。
+// 即便 Bug 如山，我亦往矣。
+// --------------------------------------------------
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
 use std::{fs, thread, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use pcap::{Active, Capture, Device};
+use protocol::checksum::Crc32;
 
-use crate::arp::{ArpOperation, build_arp_payload};
+use crate::arp::build_arp_payload;
 use crate::cli::{ArpMode, SendArgs};
-use crate::checksum::Crc32;
 use crate::ipv4::{Ipv4Config, build_ipv4_payloads};
+use protocol::arp::ArpOperation;
 
 const MIN_PAYLOAD: usize = 46;
 const MAX_PAYLOAD: usize = 1500;
