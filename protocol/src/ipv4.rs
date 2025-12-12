@@ -42,6 +42,19 @@ impl Ipv4Addr {
         Self([255, 255, 255, 255])
     }
 
+    /// 判断是否为广播地址 255.255.255.255
+    pub fn is_broadcast(&self) -> bool {
+        if self.0.eq(&[255, 255, 255, 255]) {
+            return true;
+        }
+        false
+    }
+
+    /// 判断是否为组播地址
+    pub fn is_multicast(&self) -> bool {
+        self.0[0] >= 224 && self.0[0] <= 239
+    }
+
     /// 未指定地址 0.0.0.0
     pub const fn unspecified() -> Self {
         Self([0, 0, 0, 0])

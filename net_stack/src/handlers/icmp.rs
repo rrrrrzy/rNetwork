@@ -31,8 +31,8 @@ pub fn handle(stack: &NetworkStack, src_mac: MacAddr, src_ip: Ipv4Addr, payload:
 
     match IcmpType::parse(packet.header.type_) {
         IcmpType::Request => {
-            // println!("Received ICMP Request from {}", src_ip);
-            // println!("{}", packet);
+            println!("Received ICMP Request from {}", src_ip);
+            println!("{}", packet);
             send_reply(stack, src_mac, src_ip, &packet);
         }
         IcmpType::Reply => {

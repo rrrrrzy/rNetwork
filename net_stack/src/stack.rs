@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex};
 
 // 引入 handlers
 use crate::handlers::{arp, ipv4};
+use crate::transport::{Socket, SocketSet};
 
 pub struct StackConfig {
     pub mac: MacAddr,
@@ -32,13 +33,15 @@ pub struct NetworkStack {
     sender: Arc<Mutex<Capture<Active>>>,
     // ARP 表 (IP -> MAC)
     // arp_table: Arc<Mutex<ArpTable>>,
+    pub sockets: Arc<Mutex<SocketSet>>,
 }
 
 impl NetworkStack {
-    pub fn new(config: StackConfig, sender: Capture<Active>) -> Self {
+    pub fn new(config: StackConfig, sender: Capture<Active>, socket: SocketSet) -> Self {
         Self {
             config,
             sender: Arc::new(Mutex::new(sender)),
+            sockets: Arc::new(Mutex::new(socket)),
         }
     }
 

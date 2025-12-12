@@ -14,8 +14,8 @@
 pub mod arp;
 pub mod checksum;
 pub mod error;
+pub mod ethernet;
 pub mod icmp;
 pub mod ipv4;
 pub mod mac;
 pub mod udp;
-pub mod ethernet;

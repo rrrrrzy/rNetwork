@@ -15,6 +15,7 @@ use protocol::ethernet::{EtherType, EthernetHeader};
 use protocol::ipv4::{Ipv4Addr, Ipv4Header, Ipv4Protocol};
 use protocol::mac::MacAddr;
 
+use crate::handlers::udp;
 use crate::{handlers::icmp, stack::NetworkStack};
 
 pub fn handle(stack: &NetworkStack, eth_header: &EthernetHeader, payload: &[u8]) {
@@ -57,7 +58,7 @@ pub fn handle(stack: &NetworkStack, eth_header: &EthernetHeader, payload: &[u8])
             // drop
         }
         Ipv4Protocol::UDP => {
-            // drop
+            udp::handle(stack, header.src, header.dst, &payload[20..]);
         }
         Ipv4Protocol::Unknown => {
             eprintln!("Unknown IPv4 Protocol: {}", header.protocol)

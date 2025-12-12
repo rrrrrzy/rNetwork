@@ -30,6 +30,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use crate::transport::SocketSet;
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -50,6 +52,7 @@ fn main() -> Result<()> {
     let mac = MacAddr::from_str(&mac_str).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     let config = StackConfig { mac, ip };
+    let socket_set = SocketSet::new();
 
     // 1. Find the device
     let device = Device::list()?
@@ -73,7 +76,7 @@ fn main() -> Result<()> {
         .open()?;
 
     // 4. Initialize Stack
-    let stack = Arc::new(NetworkStack::new(config, tx_cap));
+    let stack = Arc::new(NetworkStack::new(config, tx_cap, socket_set));
 
     println!("Stack initialized. IP: {}, MAC: {}", ip, mac);
 
