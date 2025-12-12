@@ -11,6 +11,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
 use crate::error::ArpParseError;
 use crate::ipv4::Ipv4Addr;
 use crate::mac::MacAddr;
@@ -152,5 +155,79 @@ impl ArpPacket {
         bytes[24..28].copy_from_slice(&self.target_ip.octets());
 
         bytes
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArpEntry {
+    pub mac: MacAddr,
+    pub timestamp: Instant,
+    pub is_static: bool, // 静态项(如网关)永不过期
+}
+
+/// ARP 缓存表
+pub struct ArpTable {
+    entries: HashMap<Ipv4Addr, ArpEntry>,
+    ttl: Duration, // 默认过期时间
+}
+
+impl ArpTable {
+    /// 创建新的 ARP 表
+    pub fn new(ttl: Duration) -> Self {
+        Self {
+            entries: HashMap::new(),
+            ttl,
+        }
+    }
+
+    /// 查询 IP 对应的 MAC 地址
+    /// 返回 None 如果不存在或已过期
+    pub fn lookup(&self, ip: Ipv4Addr) -> Option<MacAddr> {
+        let entry = self.entries.get(&ip)?;
+
+        // 2. 检查是否过期
+        if entry.is_static || entry.timestamp.elapsed() < self.ttl {
+            return Some(entry.mac);
+        }
+
+        None
+    }
+
+    /// 插入或更新 ARP 项(动态)
+    pub fn insert(&mut self, ip: Ipv4Addr, mac: MacAddr) {
+        let ae = ArpEntry {
+            mac,
+            timestamp: Instant::now(),
+            is_static: false,
+        };
+
+        self.entries.insert(ip, ae);
+    }
+
+    /// 插入静态 ARP 项(如网关)
+    pub fn insert_static(&mut self, ip: Ipv4Addr, mac: MacAddr) {
+        // 创建
+        let ae = ArpEntry {
+            mac,
+            timestamp: Instant::now(),
+            is_static: true,
+        };
+
+        self.entries.insert(ip, ae);
+    }
+
+    /// 清理过期项(后台定期调用)
+    pub fn evict_expired(&mut self) {
+        self.entries
+            .retain(|_, ae| ae.is_static || ae.timestamp.elapsed() < self.ttl);
+    }
+
+    /// 获取所有有效项(用于调试/日志)
+    pub fn entries(&self) -> Vec<(Ipv4Addr, MacAddr)> {
+        self.entries
+            .iter()
+            .filter(|(_, ae)| ae.is_static || ae.timestamp.elapsed() < self.ttl)
+            .map(|(ip, ae)| (*ip, ae.mac))
+            .collect()
     }
 }

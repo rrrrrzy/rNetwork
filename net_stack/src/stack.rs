@@ -16,10 +16,12 @@ use protocol::ethernet::{EtherType, EthernetHeader};
 use protocol::ipv4::Ipv4Addr;
 use protocol::mac::MacAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 // 引入 handlers
 use crate::handlers::{arp, ipv4};
-use crate::transport::{Socket, SocketSet};
+use crate::transport::SocketSet;
+use protocol::arp::ArpTable;
 
 pub struct StackConfig {
     pub mac: MacAddr,
@@ -32,7 +34,7 @@ pub struct NetworkStack {
     // 发送端需要互斥锁，因为可能有多个线程（RX线程回包，用户线程发包）同时发送
     sender: Arc<Mutex<Capture<Active>>>,
     // ARP 表 (IP -> MAC)
-    // arp_table: Arc<Mutex<ArpTable>>,
+    arp_table: Arc<Mutex<ArpTable>>,
     pub sockets: Arc<Mutex<SocketSet>>,
 }
 
@@ -41,6 +43,7 @@ impl NetworkStack {
         Self {
             config,
             sender: Arc::new(Mutex::new(sender)),
+            arp_table: Arc::new(Mutex::new(ArpTable::new(Duration::from_secs(300)))),
             sockets: Arc::new(Mutex::new(socket)),
         }
     }
@@ -93,5 +96,10 @@ impl NetworkStack {
     // 辅助接口：获取本机配置
     pub fn config(&self) -> &StackConfig {
         &self.config
+    }
+
+    // 获取 ARP 表
+    pub fn arp_table(&self) -> &Arc<Mutex<ArpTable>> {
+        &self.arp_table
     }
 }
