@@ -11,11 +11,10 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use protocol::ipv4::Ipv4Addr;
 use std::collections::HashMap;
 
-use protocol::ipv4::Ipv4Addr;
-
-use crate::transport::udp::UdpSocket;
+use crate::transport::udp::UdpSocketState;
 
 pub mod udp;
 
@@ -73,7 +72,7 @@ impl SocketType {
 
 #[derive(Debug)]
 pub enum Socket {
-    Udp(UdpSocket),
+    Udp(UdpSocketState),
     // Future: Tcp(TcpSocket)
 }
 

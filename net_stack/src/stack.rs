@@ -11,17 +11,17 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use pcap::{Active, Capture};
+use pcap::{Active, Capture, Device};
 use protocol::ethernet::{EtherType, EthernetHeader};
-use protocol::ipv4::{Ipv4Addr, Ipv4Header, Ipv4Protocol};
+use protocol::ipv4::{self, Ipv4Addr, Ipv4Protocol};
 use protocol::mac::MacAddr;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // 引入 handlers
-use crate::handlers::{arp, ipv4};
-use crate::transport::SocketSet;
+use crate::handlers;
+use crate::transport::{Socket, SocketSet};
 use protocol::arp::ArpTable;
 
 pub struct PendingPacket {
@@ -37,20 +37,42 @@ pub struct StackConfig {
     // pub gateway: Ipv4Addr, // 以后再加
 }
 
+pub fn initialize(iface: &str, config: StackConfig) -> anyhow::Result<Arc<NetworkStack>> {
+    let device = Device::list()?
+        .into_iter()
+        .find(|d| d.name == iface)
+        .ok_or_else(|| anyhow::anyhow!("Device not found"))?;
+
+    println!("Starting Network Stack on interface: {}", device.name);
+
+    let rx_cap = Capture::from_device(device.clone())?.open()?;
+    let tx_cap = Capture::from_device(device)?.open()?;
+
+    let stack = NetworkStack::new(config, tx_cap, rx_cap, SocketSet::new());
+    Ok(Arc::new(stack))
+}
+
 pub struct NetworkStack {
     config: StackConfig,
-    // 发送端需要互斥锁，因为可能有多个线程（RX线程回包，用户线程发包）同时发送
+    // 需要互斥锁，因为可能有多个线程（RX线程回包，用户线程发包）同时发送
     sender: Arc<Mutex<Capture<Active>>>,
+    receiver: Arc<Mutex<Capture<Active>>>,
     arp_table: Arc<Mutex<ArpTable>>,
     pub sockets: Arc<Mutex<SocketSet>>,
     pending_packets: Arc<Mutex<HashMap<Ipv4Addr, VecDeque<PendingPacket>>>>,
 }
 
 impl NetworkStack {
-    pub fn new(config: StackConfig, sender: Capture<Active>, socket: SocketSet) -> Self {
+    pub fn new(
+        config: StackConfig,
+        sender: Capture<Active>,
+        receiver: Capture<Active>,
+        socket: SocketSet,
+    ) -> Self {
         Self {
             config,
             sender: Arc::new(Mutex::new(sender)),
+            receiver: Arc::new(Mutex::new(receiver)),
             arp_table: Arc::new(Mutex::new(ArpTable::new(Duration::from_secs(300)))),
             sockets: Arc::new(Mutex::new(socket)),
             pending_packets: Arc::new(Mutex::new(HashMap::new())),
@@ -80,11 +102,11 @@ impl NetworkStack {
         match eth_header.ethertype {
             EtherType::Arp => {
                 // 调用 ARP Handler
-                arp::handle(self, payload);
+                handlers::arp::handle(self, payload);
             }
             EtherType::Ipv4 => {
                 // 调用 IPv4 Handler
-                ipv4::handle(self, payload);
+                handlers::ipv4::handle(self, payload);
             }
             EtherType::Ipv6 => {
                 // println!("IPv6 is not supported");
@@ -115,5 +137,50 @@ impl NetworkStack {
     // 获取待发送的 IP 包列表
     pub fn pending_packets(&self) -> &Arc<Mutex<HashMap<Ipv4Addr, VecDeque<PendingPacket>>>> {
         &self.pending_packets
+    }
+
+    pub fn get_rx_capture(&self) -> &Arc<Mutex<Capture<Active>>> {
+        &self.receiver
+    }
+
+    pub fn get_tx_capture(&self) -> &Arc<Mutex<Capture<Active>>> {
+        &self.sender
+    }
+
+    pub fn poll_and_send(&self) {
+        let mut socket_set = self.sockets.lock().unwrap();
+
+        for (handle, socket) in socket_set.iter_mut() {
+            if let Socket::Udp(udp_socket) = socket {
+                while let Some((dst_ip, dst_port, payload)) = udp_socket.poll_transmit() {
+                    // 从 SocketHandle 中提取源端口
+                    let src_port = handle.local_port;
+
+                    // 构造 UDP 包
+                    let udp_header = protocol::udp::UdpHeader::new(src_port, dst_port, 0);
+                    let udp_packet =
+                        protocol::udp::UdpPacket::new(udp_header, payload, self.config.ip, dst_ip);
+                    let udp_bytes = udp_packet.to_bytes();
+
+                    // 发送
+                    handlers::ipv4::send_packet(self, dst_ip, Ipv4Protocol::UDP, &udp_bytes);
+                }
+            }
+        }
+    }
+
+    pub fn cleanup_pending_packets(&self) {
+        let mut pending = self.pending_packets().lock().unwrap();
+        for (ip, packets) in pending.iter_mut() {
+            packets.retain(|pkt| {
+                if pkt.timestamp.elapsed() < Duration::from_secs(3) {
+                    true
+                } else {
+                    eprintln!("drop timeout pending packet: dst_ip {}", ip);
+                    false
+                }
+            });
+        }
+        pending.retain(|_, packets| !packets.is_empty());
     }
 }

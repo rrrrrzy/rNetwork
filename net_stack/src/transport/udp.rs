@@ -11,13 +11,17 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use crate::handlers;
+use crate::{
+    handlers,
+    stack::NetworkStack,
+    transport::{Socket, SocketHandle},
+};
+use anyhow::{self, Error};
 use protocol::ipv4::Ipv4Addr;
-use protocol::mac::MacAddr;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, f32::consts::E, sync::Arc};
 
 #[derive(Debug)]
-pub struct UdpSocket {
+pub struct UdpSocketState {
     /// Received packets queue: (source_ip, source_port, payload)
     /// UDP preserves message boundaries, so we store packets, not a byte stream.
     rx_queue: VecDeque<(Ipv4Addr, u16, Vec<u8>)>,
@@ -34,7 +38,7 @@ pub struct UdpSocket {
     tx_capacity: usize,
 }
 
-impl UdpSocket {
+impl UdpSocketState {
     /// Create a new UDP socket
     pub fn new() -> Self {
         Self {
@@ -116,8 +120,87 @@ impl UdpSocket {
     // }
 }
 
-impl Default for UdpSocket {
+impl Default for UdpSocketState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub struct UdpSocket {
+    handle: SocketHandle,
+    stack: Arc<NetworkStack>,
+}
+
+impl UdpSocket {
+    pub fn bind(stack: Arc<NetworkStack>, addr: &str) -> anyhow::Result<Self> {
+        let (ip, port) = parse_addr(addr)?;
+
+        let handle = SocketHandle::new(
+            &super::SocketType::Udp,
+            ip,
+            port,
+            Ipv4Addr::unspecified(),
+            0,
+        );
+
+        let socket_state = UdpSocketState::new();
+
+        stack
+            .sockets
+            .lock()
+            .unwrap()
+            .add(handle, Socket::Udp(socket_state));
+
+        Ok(Self { handle, stack })
+    }
+
+    pub fn send_to(&self, payload: &[u8], dst_addr: &str) -> anyhow::Result<()> {
+        let (dst_ip, dst_port) = parse_addr(dst_addr)?;
+
+        // 我们需要通过 handle 找到自己的 SocketState
+        // 注意：lookup 是用来查找"匹配数据包的 Socket"，而这里我们需要"获取自己的 Socket"
+        // 所以应该直接用 self.handle 去 get_mut
+
+        let mut sockets = self.stack.sockets.lock().unwrap();
+        if let Some(Socket::Udp(udp_socket_state)) = sockets.get_mut(self.handle) {
+            udp_socket_state.send_to(payload, dst_ip, dst_port);
+            Ok(())
+        } else {
+            // 这种情况理论上不应该发生，除非 Socket 被意外移除了
+            anyhow::bail!("Socket state not found (maybe closed?)");
+        }
+    }
+
+    pub fn recv_from(&self) -> anyhow::Result<(Vec<u8>, String)> {
+        let mut sockets = self.stack.sockets.lock().unwrap();
+        if let Some(Socket::Udp(udp_socket_state)) = sockets.get_mut(self.handle) {
+            if let Some((src_ip, src_port, payload)) = udp_socket_state.recv() {
+                let src_addr = format!("{}:{}", src_ip, src_port);
+                Ok((payload, src_addr))
+            } else {
+                // 暂时返回空数据表示没有收到，或者你可以选择阻塞/报错
+                // 为了简单起见，这里模拟非阻塞模式，返回 WouldBlock 错误
+                // 但 anyhow 不太好表达 WouldBlock，我们先返回一个特定的错误信息
+                anyhow::bail!("No data available");
+            }
+        } else {
+            anyhow::bail!("Socket state not found");
+        }
+    }
+}
+
+fn parse_addr(addr: &str) -> anyhow::Result<(Ipv4Addr, u16)> {
+    let parts: Vec<&str> = addr.split(':').collect();
+    if parts.len() != 2 {
+        anyhow::bail!("Invalid address format, expected IP:PORT");
+    }
+
+    let ip = parts[0]
+        .parse::<Ipv4Addr>()
+        .map_err(|_| anyhow::anyhow!("Invalid IP address"))?;
+    let port = parts[1]
+        .parse::<u16>()
+        .map_err(|_| anyhow::anyhow!("Invalid port number"))?;
+
+    Ok((ip, port))
 }
