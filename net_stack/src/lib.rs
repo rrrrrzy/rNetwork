@@ -11,26 +11,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use anyhow::Result;
-use clap::Parser;
-use net_stack::cli::Args;
-use net_stack::config;
-use net_stack::event_loop;
-use net_stack::stack;
-
-fn main() -> Result<()> {
-    let args = Args::parse();
-
-    // 从配置文件或命令行参数获取 IP 和 MAC
-    let stack_config = config::load_config(&args)?;
-
-    let stack = stack::initialize(&args.iface, stack_config)?;
-
-    if let Some(target_ip_str) = args.ping {
-        event_loop::ping(&target_ip_str, &stack)?;
-    }
-
-    event_loop::run(stack)?;
-
-    Ok(())
-}
+pub mod cli;
+pub mod config;
+pub mod event_loop;
+pub mod handlers;
+pub mod stack;
+pub mod transport;
