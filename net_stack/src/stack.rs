@@ -84,7 +84,7 @@ impl NetworkStack {
             }
             EtherType::Ipv4 => {
                 // 调用 IPv4 Handler
-                ipv4::handle(self, &eth_header, payload);
+                ipv4::handle(self, payload);
             }
             EtherType::Ipv6 => {
                 // println!("IPv6 is not supported");
