@@ -11,14 +11,17 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use std::time::Instant;
+
 use protocol::ethernet::{EtherType, EthernetHeader};
 use protocol::ipv4::{Ipv4Addr, Ipv4Header, Ipv4Protocol};
 use protocol::mac::MacAddr;
 
 use crate::handlers::udp;
+use crate::stack::PendingPacket;
 use crate::{handlers::icmp, stack::NetworkStack};
 
-pub fn handle(stack: &NetworkStack, eth_header: &EthernetHeader, payload: &[u8]) {
+pub fn handle(stack: &NetworkStack, payload: &[u8]) {
     if payload.len() <= 20 {
         eprintln!("error: IPv4 frame length less equal than 20");
         return;
@@ -52,7 +55,7 @@ pub fn handle(stack: &NetworkStack, eth_header: &EthernetHeader, payload: &[u8])
 
     match header.get_protocol() {
         Ipv4Protocol::ICMP => {
-            icmp::handle(stack, eth_header.src, header.src, &payload[20..]);
+            icmp::handle(stack, header.src, &payload[20..]);
         }
         Ipv4Protocol::TCP => {
             // drop
@@ -66,7 +69,41 @@ pub fn handle(stack: &NetworkStack, eth_header: &EthernetHeader, payload: &[u8])
     }
 }
 
-pub fn send_packet(
+pub fn send_packet(stack: &NetworkStack, dst_ip: Ipv4Addr, protocol: Ipv4Protocol, payload: &[u8]) {
+    // 1. 查询 ARP 表
+    let dst_mac_opt = {
+        // 这里使用 unwrap，是因为如果锁被 poison，说明程序已经处于不一致状态，应该 panic 而不是继续执行
+        let arp_table = stack.arp_table().lock().unwrap();
+        arp_table.lookup(dst_ip)
+    };
+
+    match dst_mac_opt {
+        Some(dst_mac) => {
+            // 情况A：ARP 表中有，直接发送
+            send_packet_with_mac(stack, dst_mac, dst_ip, protocol, payload);
+        }
+        None => {
+            // 情况B：ARP 表中没有，缓存包并触发 ARP 请求
+            println!("ARP 表中没有 {}，正在发送 ARP 请求...", dst_ip);
+
+            // 1. 将当前包加入待发送队列
+            {
+                let mut pending = stack.pending_packets().lock().unwrap();
+                pending.entry(dst_ip).or_default().push_back(PendingPacket {
+                    dst_ip,
+                    protocol,
+                    payload: payload.to_vec(),
+                    timestamp: Instant::now(),
+                });
+            }
+
+            // 2. 触发 ARP 请求
+            crate::handlers::arp::send_request(stack, dst_ip);
+        }
+    }
+}
+
+pub fn send_packet_with_mac(
     stack: &NetworkStack,
     dst_mac: MacAddr,
     dst_ip: Ipv4Addr,

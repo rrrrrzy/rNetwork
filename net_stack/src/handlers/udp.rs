@@ -11,14 +11,11 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use std::sync::Arc;
-
-use protocol::{ipv4::Ipv4Addr, mac::MacAddr, udp::UdpPacket};
+use protocol::{ipv4::Ipv4Addr, udp::UdpPacket};
 
 use crate::{
-    handlers,
     stack::NetworkStack,
-    transport::{Socket, SocketType, udp::UdpSocket},
+    transport::{Socket, SocketType},
 };
 
 // receive
@@ -45,18 +42,34 @@ pub fn handle(stack: &NetworkStack, src_ip: Ipv4Addr, dst_ip: Ipv4Addr, payload:
         }
     }
 
-    if let Ok(mut socket_set) = stack.sockets.lock() {
-        if let Some(Socket::Udp(udp_socket)) = socket_set.lookup(
-            &SocketType::Udp,
-            src_ip,
-            packet.header.src_port,
-            dst_ip,
-            packet.header.dst_port,
-        ) {
-            udp_socket.rx_enqueue(src_ip, packet.header.src_port, &packet.payload);
+    // 先查找 socket，获取必要的引用，然后立即释放锁
+    let should_enqueue = {
+        if let Ok(mut socket_set) = stack.sockets.lock() {
+            if let Some(socket) = socket_set.lookup(
+                &SocketType::Udp,
+                src_ip,
+                packet.header.src_port,
+                dst_ip,
+                packet.header.dst_port,
+            ) {
+                match socket {
+                    Socket::Udp(udp_socket) => {
+                        // 直接在这里入队（因为已经拿到了锁）
+                        udp_socket.rx_enqueue(src_ip, packet.header.src_port, &packet.payload);
+                        true
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            }
         } else {
-            // drop now
-            // future: send ICMP Port Unreachable
+            false
         }
+    }; // socket_set 锁在这里释放
+
+    if !should_enqueue {
+        // drop now
+        // future: send ICMP Port Unreachable
     }
 }

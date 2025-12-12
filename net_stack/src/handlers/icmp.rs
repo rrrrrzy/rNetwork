@@ -11,16 +11,13 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-use core::fmt;
-
 use protocol::icmp::{ICMP, IcmpType};
 use protocol::ipv4::{Ipv4Addr, Ipv4Protocol};
-use protocol::mac::MacAddr;
 
 use crate::handlers::ipv4;
 use crate::stack::NetworkStack;
 
-pub fn handle(stack: &NetworkStack, src_mac: MacAddr, src_ip: Ipv4Addr, payload: &[u8]) {
+pub fn handle(stack: &NetworkStack, src_ip: Ipv4Addr, payload: &[u8]) {
     let packet = match ICMP::parse(payload) {
         Ok(p) => p,
         Err(e) => {
@@ -33,7 +30,7 @@ pub fn handle(stack: &NetworkStack, src_mac: MacAddr, src_ip: Ipv4Addr, payload:
         IcmpType::Request => {
             println!("Received ICMP Request from {}", src_ip);
             println!("{}", packet);
-            send_reply(stack, src_mac, src_ip, &packet);
+            send_reply(stack, src_ip, &packet);
         }
         IcmpType::Reply => {
             println!("Received ICMP Reply from {}", src_ip);
@@ -45,7 +42,7 @@ pub fn handle(stack: &NetworkStack, src_mac: MacAddr, src_ip: Ipv4Addr, payload:
     }
 }
 
-fn send_reply(stack: &NetworkStack, dst_mac: MacAddr, dst_ip: Ipv4Addr, request: &ICMP) {
+fn send_reply(stack: &NetworkStack, dst_ip: Ipv4Addr, request: &ICMP) {
     let reply_packet = ICMP::new(
         IcmpType::Reply,
         request.header.code,
@@ -56,10 +53,10 @@ fn send_reply(stack: &NetworkStack, dst_mac: MacAddr, dst_ip: Ipv4Addr, request:
     );
 
     let payload = reply_packet.to_bytes();
-    ipv4::send_packet(stack, dst_mac, dst_ip, Ipv4Protocol::ICMP, &payload);
+    ipv4::send_packet(stack, dst_ip, Ipv4Protocol::ICMP, &payload);
 }
 
-pub fn send_icmp_request(stack: &NetworkStack, dst_mac: MacAddr, dst_ip: Ipv4Addr, seq: u16) {
+pub fn send_icmp_request(stack: &NetworkStack, dst_ip: Ipv4Addr, seq: u16) {
     let time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -77,5 +74,5 @@ pub fn send_icmp_request(stack: &NetworkStack, dst_mac: MacAddr, dst_ip: Ipv4Add
     );
 
     let payload = request_packet.to_bytes();
-    ipv4::send_packet(stack, dst_mac, dst_ip, Ipv4Protocol::ICMP, &payload);
+    ipv4::send_packet(stack, dst_ip, Ipv4Protocol::ICMP, &payload);
 }

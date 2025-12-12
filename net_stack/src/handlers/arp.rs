@@ -11,6 +11,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use crate::handlers;
 use crate::stack::NetworkStack;
 use protocol::{
     arp::{ArpOperation, ArpPacket},
@@ -28,13 +29,38 @@ pub fn handle(stack: &NetworkStack, payload: &[u8]) {
             return;
         }
     };
-    // 这里使用 unwrap，是因为如果锁被 poison，说明程序已经处于不一致状态，应该 panic 而不是继续执行
-    let mut arp_table = stack.arp_table().lock().unwrap();
-    arp_table.insert(packet.sender_ip, packet.sender_mac);
-    println!(
-        "学习到 ARP 映射: {} -> {}",
-        packet.sender_ip, packet.sender_mac
-    );
+
+    // 使用作用域限制锁的生命周期
+    {
+        // 这里使用 unwrap，是因为如果锁被 poison，说明程序已经处于不一致状态，应该 panic 而不是继续执行
+        let mut arp_table = stack.arp_table().lock().unwrap();
+        arp_table.insert(packet.sender_ip, packet.sender_mac);
+        println!(
+            "学习到 ARP 映射: {} -> {}",
+            packet.sender_ip, packet.sender_mac
+        );
+    }
+
+    // 检查是否有等待这个 IP 的包
+    {
+        let mut pending = stack.pending_packets().lock().unwrap();
+        if let Some(packets) = pending.remove(&packet.sender_ip) {
+            println!(
+                "发现 {} 个等待 {} 的数据包，正在发送...",
+                packets.len(),
+                packet.sender_ip
+            );
+            for pkt in packets {
+                handlers::ipv4::send_packet_with_mac(
+                    stack,
+                    packet.sender_mac, // 现在我们知道 MAC 了
+                    pkt.dst_ip,
+                    pkt.protocol,
+                    &pkt.payload,
+                );
+            }
+        }
+    }
 
     match ArpOperation::parse(packet.opcode) {
         ArpOperation::Request => {

@@ -28,7 +28,7 @@ use handlers::icmp;
 use stack::{NetworkStack, StackConfig};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::transport::SocketSet;
 
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
             let mut seq = 1;
             loop {
                 println!("Sending ICMP Request seq={} to {}", seq, target_ip);
-                icmp::send_icmp_request(&stack_clone, target_mac, target_ip, seq);
+                icmp::send_icmp_request(&stack_clone, target_ip, seq);
                 seq += 1;
                 thread::sleep(Duration::from_secs(1));
             }
@@ -109,6 +109,9 @@ fn main() -> Result<()> {
     }
 
     println!("Waiting for packets...");
+
+    // cleanup pending packet
+    let mut last_cleanup = Instant::now();
 
     // 6. Event Loop
     loop {
@@ -122,6 +125,23 @@ fn main() -> Result<()> {
             Err(e) => {
                 eprintln!("Error receiving packet: {:?}", e);
             }
+        }
+
+        if last_cleanup.elapsed() > Duration::from_secs(1) {
+            let mut pending = stack.pending_packets().lock().unwrap();
+            for (ip, packets) in pending.iter_mut() {
+                packets.retain(|pkt| {
+                    // over 3 usually means not found ip's mac => ip not exist
+                    if pkt.timestamp.elapsed() < Duration::from_secs(3) {
+                        true // save
+                    } else {
+                        eprintln!("drop timeout pending packet: dst_ip {}", ip);
+                        false // del
+                    }
+                });
+            }
+            pending.retain(|_, packets| !packets.is_empty());
+            last_cleanup = Instant::now();
         }
     }
 }
