@@ -132,6 +132,34 @@ net_stack/
                     └──────────────┘
 ```
 
+```mermaid
+graph TD
+    %% 设置节点样式为左对齐，背景色浅灰，边框深灰，类似截图风格
+    classDef plain fill:#f5f5f5,stroke:#333,stroke-width:1px,text-align:left;
+
+    %% 1. 定义节点
+    %% 使用 <br> 进行换行
+    MainNode["<b>main.rs (Event Loop)</b><br>| RX Thread: pcap receive<br>| TX Thread: periodic ping (optional)"]
+    
+    StackNode["<b>stack.rs (Protocol Stack)</b><br>- Ethernet frame parsing<br>- MAC filtering (self + broadcast)<br>- Protocol dispatcher"]
+    
+    ARPNode["<b>ARP</b><br>Handler"]
+    IPv4Node["<b>IPv4</b><br>Handler"]
+    ICMPNode["<b>ICMP</b><br>Handler"]
+
+    %% 2. 定义连接关系
+    MainNode --> StackNode
+    
+    %% 这里表示从 StackNode 分叉出两个箭头
+    StackNode --> ARPNode
+    StackNode --> IPv4Node
+    
+    IPv4Node --> ICMPNode
+
+    %% 3. 应用样式
+    class MainNode,StackNode,ARPNode,IPv4Node,ICMPNode plain
+```
+
 #### 关键设计决策
 1. **线程安全**: 使用 `Arc<NetworkStack>` 在 RX 线程和 Ping 线程间共享
 2. **互斥锁**: `sender: Arc<Mutex<Capture<Active>>>` 保护发送操作

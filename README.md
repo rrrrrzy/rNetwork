@@ -25,6 +25,8 @@ cargo build --workspace --release
 # - ethernet_frame_send
 # - ethernet_frame_receive
 # - net_stack
+# - udp_server        # UDP Echo Server 示例
+# - udp_client        # UDP Echo Client 示例
 ```
 
 ## 核心特性
@@ -126,6 +128,20 @@ Sending ICMP Request seq=2 to 192.168.31.55
 Received ICMP Reply from 192.168.31.55
 ```
 
+#### 场景 3: UDP Echo 示例
+```bash
+# 启动 Server
+sudo cargo run --bin udp_server -- --config net_stack.conf --iface en0
+
+# 启动 Client（另一个终端）
+sudo cargo run --bin udp_client -- --config net_stack.conf --iface en0
+```
+
+**说明**：
+- Server 绑定在 `0.0.0.0:8080`，收到消息后原样回显。
+- Client 默认绑定 `0.0.0.0:12345`，从 stdin 读取消息，发送到 Server 并等待回复。
+- 如果跨机器测试，请修改 Client 代码中的目标 IP 为 Server 所在主机的 IP。
+
 ### 架构设计
 
 ```
@@ -156,17 +172,17 @@ Received ICMP Reply from 192.168.31.55
 ```
 
 ### 已实现功能
-- ✅ ARP 请求/响应
+- ✅ ARP 请求/响应 + 自动学习并驱动挂起包发送
 - ✅ ICMP Echo Request/Reply (Ping)
-- ✅ IPv4 分发与封装
-- ✅ 以太网帧填充（最小 60 字节）
-- ✅ 配置文件支持
+- ✅ IPv4 分发与封装（自动填充到最小 60 字节）
+- ✅ UDP Socket（bind / send_to / recv_from，基础队列转发）
+- ✅ 配置文件支持（IP/MAC）
 
 ### 待实现功能
-- ⏳ ARP 表持久化与自动查询
-- ⏳ UDP 协议支持
+- ⏳ ARP 表持久化/老化策略
+- ⏳ UDP 增强（端口不可达 ICMP、并发调度等）
 - ⏳ TCP 协议支持（三次握手、可靠传输）
-- ⏳ Socket 接口抽象
+- ⏳ Socket 接口高级特性（非阻塞/超时等）
 
 ---
 
@@ -484,9 +500,9 @@ sudo tcpdump -i en0 -w capture.pcap
 
 ---
 
-**最后更新**: 2025-12-11  
-**版本**: v0.2.0-alpha  
-**提交**: c8c1af0
+**最后更新**: 2025-12-113 
+**版本**: v0.2.1-alpha  
+**提交**: 35dac02
 ## 新增：ARP 帧构造与发送
 
 `ethernet_frame_send` 现在可以直接构造 RFC 826 ARP 报文，无需准备数据文件：
