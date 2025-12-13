@@ -13,9 +13,13 @@
 
 ### 环境要求
 - **Rust**: 1.75+ (推荐使用 `rustup`)
-- **libpcap**: macOS 自带；Linux 需安装 `libpcap-dev`
+- **libpcap**: macOS 自带；Linux 需安装 `libpcap-dev`；Windows 需手动下载 Npcap SDK，并自行设置环境变量$LIB
 - **权限**: 需要 `sudo` 或 `CAP_NET_RAW` 能力来访问网卡
-
+> [!NOTE]
+> Windows 配置说明
+> 在Windows环境下，想要正确编译运行 rNetwork，你需要手动下载对应的 pcap 使用的库文件，推荐下载 Npcap SDK，解压后自行将 `x64/wpcap.lib` 和 `x64/Packet.lib` 所在的目录添加到环境变量 `$LIB` 中
+> 同时，Windows下网卡设置也比较复杂，需要先运行 `sudo target/release/ethernet_frame_send list` 列出可用网卡，但此时列出的网卡名称非常复杂，且不包含具体的描述符，例如：`\Device\NPF_{50ACEF7C-BB97-43B6-9606-26EBFFAF84A6}`，这时，请继续运行指令`Get-NetAdapter | Select-Object Name, InterfaceDescription, InterfaceGuid`，查看对应的具体网卡，筛选出符合本项目需求的以太网卡
+> 最后，在设置网卡名称时，需要使用引号将名称包围，以防 PowerShell 将名称中的特殊字符解析，即 `xxx --iface "\Device\NPF_{50ACEF7C-BB97-43B6-9606-26EBFFAF84A6}" xxx`.
 ### 编译
 ```bash
 # 编译整个工作空间
