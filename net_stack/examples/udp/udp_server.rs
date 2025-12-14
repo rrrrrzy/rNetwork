@@ -18,7 +18,7 @@ use clap::Parser;
 use net_stack::{
     cli::Args,
     config,
-    stack::{self, NetworkStack},
+    stack,
     transport::udp::UdpSocket,
 };
 
@@ -39,7 +39,6 @@ fn main() -> Result<()> {
     let socket = UdpSocket::bind(stack.clone(), "0.0.0.0:8080")?;
     println!("UDP Server listening on 0.0.0.0:8080");
 
-    let mut buf = [0u8; 1024];
     loop {
         // 非阻塞接收
         match socket.recv_from() {

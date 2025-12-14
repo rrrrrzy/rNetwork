@@ -18,22 +18,60 @@
 - ARP 表已具备自动学习与发送挂起包的能力，但持久化与老化策略后续再完善。
 
 ## Architecture (2025-12-13)
+架构图
+```mermaid
+graph TD
+    %% 设置节点样式为左对齐，背景色浅灰，边框深灰，类似截图风格
+    classDef plain fill:#f5f5f5,stroke:#333,stroke-width:1px,text-align:left;
+
+    %% 1. 定义节点
+    %% 使用 <br> 进行换行
+    MainNode["<b>Event Loop</b><br>| RX Thread: pcap receive<br>| TX Thread: periodic ping (optional)"]
+    
+    StackNode["<b>stack.rs (Protocol Stack)</b><br>- Ethernet frame parsing<br>- MAC filtering (self + broadcast)<br>- Protocol dispatcher"]
+    
+    ARPNode["<b>ARP</b><br>Handler"]
+    ARPTableNode["<b>ARPTable</b><br>Handler"]
+    IPv4Node["<b>IPv4</b><br>Handler"]
+    UDPHNode["<b>UDP</b><br>Handler"]
+    ICMPNode["<b>ICMP</b><br>Handler"]
+    SocketNode["<b>SocketSet</b><br>Transport"]
+    UdpSocketAPI["<center><b>UdpSocket API</b></center>Transport<br><em>bind, sendto, recv_from</em>"]
+
+    %% 2. 定义连接关系
+    MainNode --> StackNode
+    
+    %% 这里表示从 StackNode 分叉出两个箭头
+    StackNode --> ARPNode
+    StackNode --> IPv4Node
+    StackNode --> SocketNode
+    
+    ARPNode  --> ARPTableNode
+    IPv4Node --> ICMPNode
+    IPv4Node --> UDPHNode
+    SocketNode --> UdpSocketAPI
+
+    %% 3. 应用样式
+    class MainNode,StackNode,ARPNode,IPv4Node,ARPTableNode,ICMPNode,UDPHNode,SocketNode,UdpSocketAPI plain
+```
+
+流程图
 
 ```mermaid
 graph TD
 	classDef box fill:#f5f5f5,stroke:#333,stroke-width:1px,text-align:left;
 
-	Main["net_stack main (binary)• 解析 CLI/配置• 启动 event_loop"]
-	Loop["event_loop::run• pcap RX• poll_and_send (TX)• ARP 挂起队列调度"]
-	Stack["stack.rs• 以太网解析/分发• MAC 过滤• 调用 handlers"]
+	Main["net_stack main (binary)<br>• 解析 CLI/配置<br>• 启动 event_loop"]
+	Loop["event_loop::run<br>• pcap RX<br>• poll_and_send (TX)<br>• ARP 挂起队列调度"]
+	Stack["stack.rs<br>• 以太网解析/分发<br>• MAC 过滤<br>• 调用 handlers"]
 
-	ARP["handlers::arp• ARP 请求/响应• 学习 ARP 表• 唤醒挂起包"]
-	IPv4["handlers::ipv4• IPv4 解析/封装• 分发 ICMP/UDP"]
-	ICMP["handlers::icmp• Echo Request/Reply"]
-	UDPH["handlers::udp• UDP 解析/校验• socket_set.lookup -> rx_enqueue"]
+	ARP["handlers::arp<br>• ARP 请求/响应<br>• 学习 ARP 表<br>• 唤醒挂起包"]
+	IPv4["handlers::ipv4<br>• IPv4 解析/封装<br>• 分发 ICMP/UDP"]
+	ICMP["handlers::icmp<br>• Echo Request/Reply"]
+	UDPH["handlers::udp<br>• UDP 解析/校验<br>• socket_set.lookup -> rx_enqueue"]
 
-	Sockets["SocketSet (HashMap<SocketHandle, Socket>)• 五元组匹配• 精确/指定IP/通配"]
-	UdpState["UdpSocketState• rx/tx 队列• bind/send_to/recv_from"]
+	Sockets["SocketSet (HashMap<SocketHandle, Socket>)<br>• 五元组匹配<br>• 精确/指定IP/通配"]
+	UdpState["UdpSocketState<br>• rx/tx 队列<br>• bind/send_to/recv_from"]
 
 	Main --> Loop --> Stack
 	Stack --> ARP

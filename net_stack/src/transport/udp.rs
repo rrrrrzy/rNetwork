@@ -12,13 +12,12 @@
 // (at your option) any later version.
 
 use crate::{
-    handlers,
     stack::NetworkStack,
     transport::{Socket, SocketHandle},
 };
-use anyhow::{self, Error};
+use anyhow;
 use protocol::ipv4::Ipv4Addr;
-use std::{collections::VecDeque, f32::consts::E, sync::Arc};
+use std::{collections::VecDeque, sync::Arc};
 
 #[derive(Debug)]
 pub struct UdpSocketState {

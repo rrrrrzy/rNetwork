@@ -13,7 +13,7 @@
 
 use pcap::{Active, Capture, Device};
 use protocol::ethernet::{EtherType, EthernetHeader};
-use protocol::ipv4::{self, Ipv4Addr, Ipv4Protocol};
+use protocol::ipv4::{Ipv4Addr, Ipv4Protocol};
 use protocol::mac::MacAddr;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};

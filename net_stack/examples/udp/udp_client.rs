@@ -22,7 +22,7 @@ use clap::Parser;
 use net_stack::{
     cli::Args,
     config,
-    stack::{self, NetworkStack},
+    stack,
     transport::udp::UdpSocket,
 };
 

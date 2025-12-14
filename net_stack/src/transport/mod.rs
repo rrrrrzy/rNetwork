@@ -203,3 +203,9 @@ impl SocketSet {
             .collect()
     }
 }
+
+impl Default for SocketSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
